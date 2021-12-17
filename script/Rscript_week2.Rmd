@@ -1,0 +1,462 @@
+---
+title: "script_scarabi"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r Load Data}
+library(Seurat)
+library(tximport)
+#install.packages("corrplot")
+library(corrplot)
+#install.packages("network")
+library(network)
+devtools::install_version("uwot", version = "0.1.10", repos = "http://cran.us.r-project.org")
+library(uwot)
+
+samps <- c("SRR8257100",
+"SRR8257101",
+"SRR8257102",
+"SRR8257103",
+"SRR8257104",
+"SRR8257105",
+"SRR8257106")
+
+```
+
+# Path to the output directory of Alevin quant run 
+
+```{r matrice de compte, results="hide"}
+
+files <- file.path(
+  paste("~/mydatalocal/tpngsscarabi_lena/data/quant/",samps,"/alevin/quants_mat.gz", sep=""))
+file.exists(files)
+```
+
+```{r ,results="hide"}
+txis <- lapply(files, function(f) tximport(files = f, type="alevin"))
+```
+# Il faut créer 4 objets Seurat indépendants pour les 4 échantillons de WT 
+On ne peut pas les compiler plus tôt car ils proviennent d'expériences indépendantes et donc peuvent contenir les mêmes identifiants. 
+Il faut donc les séparer et on les mergera ensuite. 
+
+avec min.cells = 3 on retire les gènes exprimés dans moins de 3 cellules 
+
+avec min.features = 200 on retire les cellules exprimant moins de 200 gènes 
+
+avec add.cell.ids = samps[1:4] on rend chaque cellule identifiée de manière unique 
+
+```{r création des objets Seurat}
+ s1 <- CreateSeuratObject(counts = txis[[1]]$counts , min.cells = 3, min.features = 200, project = samps[1])
+ s2 <- CreateSeuratObject(counts = txis[[2]]$counts , min.cells = 3, min.features = 200, project = samps[2])
+ s3 <- CreateSeuratObject(counts = txis[[3]]$counts , min.cells = 3, min.features = 200, project = samps[3])
+ s4 <- CreateSeuratObject(counts = txis[[4]]$counts , min.cells = 3, min.features = 200, project = samps[4])
+scarabiWT <- merge(s1, y = c(s2, s3,s4), add.cell.ids = samps[1:4], project = "scarabiWT")
+```
+
+```{r}
+scarabiWT[["percent.mt"]] <- PercentageFeatureSet(scarabiWT, pattern = "ATM")
+scarabiWT[["percent.chloro"]] <- PercentageFeatureSet(scarabiWT, pattern = "ATC")
+
+ VlnPlot(scarabiWT, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.chloro"), ncol = 4)
+```
+On remarque ici que les échantillons 100 et 101 ont anormalement beaucoup de gènes mitochondriaux et chloroplastiques : il faut qu'on sélectionne les cellules qui n'ont pas trop souffert. 
+Il serait intéressant de retirer les 5% de cellules les plus "mauvaises", avec le plus le gènes mitochondriaux exprimés; et mettre une valeur à 0.2 pour les chloroplastiques. 
+
+```{r threshold}
+thr_mt <- quantile(scarabiWT[["percent.mt"]]$percent.m, 0.95)
+thr_chloro <- scarabiWT[["percent.chloro"]]<0.2
+
+scarabiWT_filter <- subset(scarabiWT, subset = percent.chloro < 0.2 & percent.mt < thr_mt )
+```
+
+```{r graphs avec thr}
+VlnPlot(scarabiWT_filter, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.chloro"), ncol = 4)
+```
+Avec l'affiche de scarabiWT_filter, on voit que nous travaillons maintenant avec 11321 cellules, et 23443 gènes. 
+( Avant le filtre, on travaillait avec 11920 cellules et 23443 gènes )
+
+Pour avoir plus de détails sur le nombre de cellules contenues par échantillon : table(scarabiWT$orig.ident) 
+
+#Il faut maintenant normaliser les données 
+L'objectif est que la médiane d'expression entre les quatre echantillons soit la même, tout en gardant les rapports d'expression au sein de chaque échantillon; pour comparer ce qui est comparable. 
+
+```{r data normalization}
+scarabiWT_filter <- NormalizeData(scarabiWT_filter, normalization.method = "LogNormalize", scale.factor = 10000)
+```
+
+Ne pas s'intéresser aux gènes dont l'expression ne varie pas, ni aux gènes de "bruit". Le choix du nfeatures est légèrement difficile, on se met souvent à 10% du nombre de gènes totaux. Ici on va d'abord essayer avec 10 000 gènes, et on ajustera si nécessaire.  
+
+```{r Identification of highly variable features}
+scarabiWT_filter <- FindVariableFeatures(scarabiWT_filter, selection.method = "vst", nfeatures = 10000) #nombre de features à 10 000 pour 10 000 gènes d'intérêt (très lourd), devient un nouveau scarabi filtré 
+
+# plot variable features with and without labels
+top10 <- head(VariableFeatures(scarabiWT_filter), 10) #on prend les 10 gènes les plus variables
+plot1 <- VariableFeaturePlot(scarabiWT_filter)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+CombinePlots(plots = list(plot1, plot2),nrow=2)
+```
+On fait maintenant une transformation linéaire : 
+
+```{r Scaling}
+all.genes <- rownames(scarabiWT_filter)
+scarabiWT_filter <- ScaleData(scarabiWT_filter, features = all.genes)
+```
+
+On fait maintenant la PCA: (l'UMAP se basera sur la PCA)
+
+```{r}
+scarabiWT_filter <- RunPCA(scarabiWT_filter, features = VariableFeatures(object = scarabiWT_filter))
+
+print(scarabiWT_filter[["pca"]], dims = 1:5, nfeatures = 5)
+```
+
+```{r}
+VizDimLoadings(scarabiWT_filter, dims = 1:2, reduction = "pca")
+```
+
+```{r}
+DimPlot(scarabiWT_filter, reduction = "pca")
+```
+
+La PCA donne des axes qui expliquent au mieux la variance du jeu de données. Les axes sont des combinaisons linéaires des gènes de départ, avec des poids différents. 
+
+On peut maintenant faire des Heat Maps  d'expression des gènes : 
+On représente les 500 cellules avec le plus de variations d'expression 
+```{r}
+DimHeatmap(scarabiWT_filter, dims = 1, cells = 500, balanced = TRUE)
+```
+```{r}
+DimHeatmap(scarabiWT_filter, dims = 1:15, cells = 500, balanced = TRUE)
+```
+Là on visualise selon les 15 premiers axes : on remarque que très vite les axes ne représentent plus tant que ça la variance de l'expression. Cela peut notamment être expliqué par le fait que certains gènes co-varient (sont co-régulés), donc peuvent expliquer la variation selon un même axe. 
+
+```{r, eval=FALSE, include=FALSE }
+scarabiWT_filter <- JackStraw(scarabiWT_filter, num.replicate = 100)
+scarabiWT_filter <- ScoreJackStraw(scarabiWT_filter, dims = 1:20)
+JackStrawPlot(scarabiWT_filter, dims = 1:15,xmax=1,ymax=1) #attention à choisir les bonnes dimensions d'affichage 
+```
+
+Le elbowplot range selon l'importance de la variance 
+
+```{r}
+ElbowPlot(scarabiWT_filter) #montre le poids de la variance associé à chaque axe de la PCA (chaque axe étant PC1, PC2 etc..)
+```
+
+#Analyse par UMAP
+
+On cherche d'abord les voisins, puis les clusters 
+```{r}
+scarabiWT_filter <- FindNeighbors(scarabiWT_filter, dims = 1:10)
+scarabiWT_filter <- FindClusters(scarabiWT_filter, resolution = 0.5) #on peut modifier la résolution pour diviser nos cellules en plus ou moins de clusters, plus ou moins précis 
+```
+
+```{r}
+head(Idents(scarabiWT_filter), 5)
+```
+
+L'UMAP essaie de projeter sans trop perdre l'information : garder les clusters de cellules avec des expressions voisines; et garder la distance entre les clusters 
+
+```{r}
+scarabiWT_filter <- RunUMAP(scarabiWT_filter, dims = 1:10,return.model=T)
+```
+UMAP constructs a high dimensional graph representation of the data then optimizes a low-dimensional graph to be as structurally similar as possible. 
+L'UMAP calcule des distances euclidiennes entre cellules. 
+```{r UMAP Plot}
+DimPlot(scarabiWT_filter, reduction = "umap")
+```
+#Import des marqueurs de types cellulaires 
+
+```{r Feature Plot}
+markers <- read.csv("~/mydatalocal/tpngsscarabi_lena/data/Markers.csv",sep="\t",h=T)
+```
+
+```{r Feature Plot}
+library(ggplot2)
+
+markers$Locus<-gsub(" ","",markers$Locus)
+mkcortex <- markers[markers$Preferential.expression.in.root=="Cortex",]$Locus
+mkendo <- markers[markers$Preferential.expression.in.root=="Endodermis",]$Locus
+mkatricho <- markers[markers$Preferential.expression.in.root=="Epidermis - Non-hair Cells (Atrichoblasts)",]$Locus
+mktricho <- markers[markers$Preferential.expression.in.root=="Epidermis - Root Hair Cells (Trichoblasts)",]$Locus
+mkepiandlatrootcap <- markers[markers$Preferential.expression.in.root=="Epidermis and Lateral Root Cap",]$Locus
+mkmeri <- markers[markers$Preferential.expression.in.root=="Meristem (Young) Endodermis/Cortex",]$Locus
+mkrootcap <- markers[markers$Preferential.expression.in.root=="Root Cap (Columella)",]$Locus
+mkstele <- markers[markers$Preferential.expression.in.root=="Stele (Young Vascular Tissue)",]$Locus
+
+fcortex <- FeaturePlot(scarabiWT_filter, features = mkcortex)
+ggsave(fcortex,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plotcortex.png",width=40,height=20,unit="cm")
+
+fendo<- FeaturePlot(scarabiWT_filter,features = mkendo)
+ggsave(fendo,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plotendo.png",width=40,height=20,unit="cm")
+
+fatricho <- FeaturePlot(scarabiWT_filter, features = mkatricho)
+ggsave(fatricho,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plotatricho.png",width=40,height=20,unit="cm")
+
+ftricho <- FeaturePlot(scarabiWT_filter,features = mktricho)
+ggsave(ftricho,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plottricho.png",width=40,height=20,unit="cm")
+
+fepiandlatrootcap <- FeaturePlot(scarabiWT_filter,features = mkepiandlatrootcap)
+ggsave(fepiandlatrootcap,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plotepiandlatrootcap.png",width=40,height=20,unit="cm")
+
+fmeri <- FeaturePlot(scarabiWT_filter,features = mkmeri)
+ggsave(fmeri,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plotmeri.png",width=40,height=20,unit="cm")
+
+frootcap <- FeaturePlot(scarabiWT_filter,features = mkrootcap)
+ggsave(frootcap,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plotrootcap.png",width=40,height=20,unit="cm")
+
+fstele <- FeaturePlot(scarabiWT_filter,features = mkstele)
+ggsave(fstele,file="~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/plotstele.png",width=40,height=20,unit="cm")
+
+```
+
+Après avoir fait à la main une image présentant l'UMAP d'expression de chaque gène associé au type cellulaire d'intérêt, on peut essayer de superposer l'expression de tous les gènes associés au même type cellulaire. 
+Dans un premier temps on modifie légèrement nos données (retirer les espaces en trop, retirer le slash dans le nom d'un type cellulaire). 
+Ensuite on crée (split) plusieurs tables, une pour chaque type cellulaire. 
+Ensuite on crée un dossier "superposition", vide, s'il n'est pas déjà créé (-p).
+Ensuite on retire les images si elles y sont déjà (-r). 
+
+Puis on recrée (avec une boucle) les images pour chaque type cellulaire, comme fait à la main dans le bloc précédent.
+
+Puis on crée le datascore qui fait la moyenne d'expression de tous les marqueurs d'un même type cellulaire pour chaque cellule, et on utilise ces données pour présenter une superposition de tous les marqueurs génétiques en un seul plot pour un type cellulaire donné. 
+
+Enfin, on met cette image contenant les 8 plots pour les 8 types cellulaires dans le dossier superposition. 
+
+```{r superposition des plots}
+Markers <- read.csv("~/mydatalocal/tpngsscarabi_lena/data/Markers.csv",sep="\t",h=T)
+Markers$Locus<-gsub(" ","",Markers$Locus)
+Markers$Preferential.expression.in.root<-gsub("/"," ",Markers$Preferential.expression.in.root)
+lm<-split(Markers,Markers$Preferential.expression.in.root)
+system("mkdir -p ~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/superposition")
+system("rm -r ~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/superposition/*")
+output <- lapply(names(lm),function(x){f<-FeaturePlot(scarabiWT_filter, features = lm[[x]]$Locus)
+  ggsave(f,file=paste0("~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/superposition/",x,".png"),width=40,height=40,units="cm")
+  })
+datascore <- data.frame(lapply(names(lm),function(x){score=colMeans(scarabiWT_filter@assays$RNA[lm[[x]]$Locus,])
+  }))
+names(datascore)<-make.names(names(lm))
+scarabiWT_filter <- AddMetaData(scarabiWT_filter, metadata = datascore)
+g<-FeaturePlot(scarabiWT_filter, features=names(datascore))
+ggsave(g,file = "~/mydatalocal/tpngsscarabi_lena/results/plot_umap_markers/superposition/type_cellulaire.png",width=40,height=40,units="cm")
+
+```
+
+
+## Deuxième méthode pour étudier les types cellulaires 
+
+On commence par importer les données brutes obtenues par dissection de chaque type cellulaire dans un document bash intitulé data_markers (deuxième import) 
+Puis on travaille avec les transcriptomes purs de chaque type cellulaire. Pour récupérer les identifiants des échantillons (les "samps"), on va chercher dans les métadatas dont la première colonne présente tous les identifiants. 
+
+```{r Downloading metadata to get all sample names}
+samps2 <- read.table("~/mydatalocal/tpngsscarabi_lena/data/flower.ens-lyon.fr/tp_ngs/scarabi/Li2016/metadata_Li2016.txt",sep="\t")
+samps2 <- samps2[order(samps2$V3),] #on ordonne selon le type cellulaire 
+# on veut aussi supprimer les types non informatifs pour notre étude : les whole root et les traitements cycloheximide 
+rm_cell_type <- c("whole root", "whole root 1", "cycloheximide mock", "cycloheximide treatment")
+samps2 <- samps2[!(samps2$V3%in%rm_cell_type),]
+head(samps2)
+namesech<-samps2$V1 #le nom de nos échantillons se trouve dans la première colonne
+namesech
+```
+
+```{r Récupérer le path de chaque fichier quant.sf et sélectionner ceux qui existent}
+files <- file.path(
+  paste("~/mydatalocal/tpngsscarabi_lena/data/Counts_Salmon/",namesech,"/quant.sf", sep=""))
+file.exists(files)
+files<-files[file.exists(files)] #on ne prend que les fichiers existants 
+```
+
+On a ici récupéré les tables de Counts_Salmon qui contiennent les niveaux d'expression de chaque transcrit. Il faut maintenant retourner sur notre table de correspondance de transcriptome à gène pour associer l'ensemble des transcrits d'un même gène ensemble.
+
+```{r Récupérer tx2gene}
+
+txp2gene<-read.table("~/mydatalocal/tpngsscarabi_lena/data_processed/txp2gene.tsv")
+names(txp2gene)<-c("TXNAME","GENEID")
+txp2gene<-unique(txp2gene) #ne garder que les lignes uniques, pas les répétées
+head(txp2gene)
+
+```
+On peut maintenant associer (/compiler) tous les transcrits correspondant au même gène pour avoir le niveau global d'expression de ce gène. 
+lapply va rendre une liste que l'on convertira en table 
+
+```{r}
+#Créer un tableau avec l'expression de chaque gène dans chacun des échantillons qu'on a téléchargé ce matin
+txis <- lapply(files, function(f) {
+  tab<- tximport(files = f, type="salmon", tx2gene=txp2gene)
+  return(tab$abundance)
+  })
+tabpur<-as.data.frame(txis) #tables d'expression dans les tissus purs, disséqués 
+
+#Obtenir le nom des échantillons pour le tableau
+namesech2=sapply(files,function(f){strsplit(f,"/")[[1]][6]})
+
+#Changer le nom des colonnes du tableau 
+names(tabpur)<-make.names(namesech2)
+head(tabpur)
+```
+
+```{r}
+avg.e <- AverageExpression(scarabiWT_filter)
+scarabiWT_avg=data.frame(avg.e)
+genes_scarabi <- rownames(scarabiWT_avg)
+genes_li <- rownames(tabpur)
+genes_common <- genes_scarabi[genes_scarabi%in%genes_li]
+
+tabpur_c <- tabpur[genes_common,]
+scarabiWT_avg_c <- scarabiWT_avg[genes_common,]
+
+corLi_scarab_spearman <- cor(scarabiWT_avg_c,tabpur_c,method="spearman")
+
+colnames(corLi_scarab_spearman) <- lapply(colnames(corLi_scarab_spearman), function(name){samps2[samps2$V1==name,3]}) # on renomme les colonnes pour qu'elles prennent le nom des types cellulaires plutôt que le nom des échantillons 
+
+corrplot(corLi_scarab_spearman, method="color", is.corr=F,tl.col=as.color(colnames(corLi_scarab_spearman))) 
+```
+# Création du UMAP associé à ces nouveaux marqueurs de types cellulaires par cluster 
+```{r}
+cluster.id <- max.col(corLi_scarab_spearman) # on prend que le maximum de chaque ligne pour savoir à quel type cellulaire cela correspond
+sample_names <- colnames(corLi_scarab_spearman)[cluster.id]
+sample_names
+```
+
+```{r}
+
+corLi_scarab_spearman<-as.data.frame(corLi_scarab_spearman)
+names<-names(corLi_scarab_spearman)
+
+names(corLi_scarab_spearman)
+
+names(sample_names) <- levels(scarabiWT_filter)
+
+scarabiWT_filter <- RenameIdents(scarabiWT_filter, sample_names)
+DimPlot(scarabiWT_filter, reduction = "umap", label = TRUE, pt.size = 0.5) + NoLegend()
+```
+## On peut maintenant regarder les mutants 
+
+```{r Load data mutant et matrice de compte}
+files <- file.path(
+  paste("~/mydatalocal/tpngsscarabi_lena/data/quant/",samps,"/alevin/quants_mat.gz", sep=""))
+file.exists(files)
+
+txis <- lapply(files, function(f) tximport(files = f, type="alevin"))
+
+ s5 <- CreateSeuratObject(counts = txis[[5]]$counts , min.cells = 3, min.features = 200, project = samps[5])
+ s6 <- CreateSeuratObject(counts = txis[[6]]$counts , min.cells = 3, min.features = 200, project = samps[6])
+scarabimut <- merge(s5, y = c(s6), add.cell.ids = samps[5:6], project = "scarabimut")
+```
+```{r}
+scarabimut[["percent.mt"]] <- PercentageFeatureSet(scarabimut, pattern = "ATM")
+scarabimut[["percent.chloro"]] <- PercentageFeatureSet(scarabimut, pattern = "ATC")
+
+ VlnPlot(scarabimut, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.chloro"), ncol = 4)
+```
+```{r}
+thr_mt_mut <- quantile(scarabimut[["percent.mt"]]$percent.m, 0.95)
+thr_chloro_mut <- scarabimut[["percent.chloro"]]<0.2
+
+scarabimut_filter <- subset(scarabimut, subset = percent.chloro < 0.1 & percent.mt < thr_mt_mut )
+```
+```{r graphs avec thr}
+VlnPlot(scarabimut_filter, features = c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.chloro"), ncol = 4)
+```
+```{r data normalization}
+scarabimut_filter <- NormalizeData(scarabimut_filter, normalization.method = "LogNormalize", scale.factor = 10000)
+```
+
+```{r Identification of highly variable features}
+scarabimut_filter <- FindVariableFeatures(scarabimut_filter, selection.method = "vst", nfeatures = 5000) #nombre de features à 5000 pour 5000 gènes d'intérêt (très lourd), devient un nouveau scarabi filtré 
+
+# plot variable features with and without labels
+top10 <- head(VariableFeatures(scarabimut_filter), 10) #on prend les 10 gènes les plus variables
+plot1 <- VariableFeaturePlot(scarabimut_filter)
+plot2 <- LabelPoints(plot = plot1, points = top10, repel = TRUE)
+CombinePlots(plots = list(plot1, plot2),nrow=2)
+```
+
+```{r Scaling}
+all.genes <- rownames(scarabimut_filter)
+scarabimut_filter <- ScaleData(scarabimut_filter, features = all.genes)
+```
+
+```{r}
+scarabimut_filter <- RunPCA(scarabimut_filter, features = VariableFeatures(object = scarabimut_filter))
+
+print(scarabimut_filter[["pca"]], dims = 1:5, nfeatures = 5)
+```
+
+```{r}
+VizDimLoadings(scarabimut_filter, dims = 1:2, reduction = "pca")
+```
+
+```{r}
+DimPlot(scarabimut_filter, reduction = "pca")
+```
+
+```{r}
+DimHeatmap(scarabimut_filter, dims = 1, cells = 500, balanced = TRUE)
+```
+
+```{r}
+ElbowPlot(scarabimut_filter) #montre le poids de la variance associé à chaque axe de la PCA (chaque axe étant PC1, PC2 etc..)
+```
+
+```{r}
+scarabimut_filter <- FindNeighbors(scarabimut_filter, dims = 1:10)
+scarabimut_filter <- FindClusters(scarabimut_filter, resolution = 0.5) #on peut modifier la résolution pour diviser nos cellules en plus ou moins de clusters, plus ou moins précis 
+```
+```{r}
+scarabimut_filter <- RunUMAP(scarabimut_filter, dims = 1:10)
+```
+```{r UMAP Plot}
+DimPlot(scarabimut_filter, reduction = "umap")
+```
+
+On peut essayer de projeter les cellules du mutants sur l'UMAP du WT 
+
+```{r}
+scarab.anchors <- FindTransferAnchors(reference = scarabiWT_filter, query = scarabimut_filter,
+                                      dims = 1:30, reference.reduction = "pca")
+scarabimut_filter <- MapQuery(anchorset = scarab.anchors, reference = scarabiWT_filter, query = scarabimut_filter,
+                       reference.reduction = "pca", reduction.model = "umap")
+
+p1 <- DimPlot(scarabiWT_filter, reduction = "umap", label = TRUE, label.size = 3,
+              repel = TRUE) + NoLegend() + ggtitle("Reference annotations")
+#on peut ajouter  group.by = "seurat_clusters" dans les paramètres 
+p2 <- DimPlot(scarabimut_filter, reduction = "ref.umap", group.by = "seurat_clusters", label = TRUE,
+              label.size = 3, repel = TRUE) + NoLegend() + ggtitle("Query transferred labels")
+p1 + p2
+```
+```{r}
+
+library(tidyr)
+library("wesanderson")
+library(dplyr)
+
+countsLi_norm_average_by_celltype <-  tabpur %>%
+  tibble::rownames_to_column(var = "Gene") %>%
+  pivot_longer(-Gene, names_to = "SRR", values_to = "expr") %>%
+  left_join(y=samps2,by=c("SRR"="V1")) %>%
+  group_by(Gene,V3) %>%
+  dplyr::summarize(Mean = mean(expr, na.rm=TRUE))%>%
+  pivot_wider(id_cols="Gene",names_from = V3, values_from = Mean)
+
+row.names(countsLi_norm_average_by_celltype) <- countsLi_norm_average_by_celltype$Gene
+
+genes_scarabi <- rownames(scarabiWT_avg)
+genes_li <- row.names(countsLi_norm_average_by_celltype)
+genes_common <- genes_scarabi[genes_scarabi%in%genes_li]
+
+scarabiWT_avg_c <- scarabiWT_avg[genes_common,]
+countsLi_norm_average_by_celltype_c <- countsLi_norm_average_by_celltype[genes_common,]
+corLi_scarab_spearman <- cor(scarabiWT_avg_c,countsLi_norm_average_by_celltype_c[,-1],method="spearman")
+
+pdf("heatmap_mean.pdf")
+heatmap(corLi_scarab_spearman,Rowv = NA,Colv = NA,margins =c(10,2), cex.text=0.7)
+dev.off()
+
+
+```
+
