@@ -77,3 +77,5 @@ Dans un premier temps on a importé le fichier csv des associations de marqueurs
 Dans un second temps, pour la deuxième analyse, on a importé les données brutes obtenues par dissection de chaque type cellulaire = méthode types cellulaires connus. 
 
 Pour le reste de l'analyse, se réferrer au Rscript_week2.Rmd annoté en markdown. 
+
+PS : problème lié au git -> création d'un nouveau git avec les fichiers à évaluer (Readme, script; et Rproj) qui sont commit et push dans le nouveau git. 
