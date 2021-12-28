@@ -28,9 +28,9 @@ Ils sont par contre difficile a lire, on peut donc utiliser multiqc pour compile
 
 Les données étant satisfaisantes, on peut continuer avec l'analyse par Alevin. 
 
-#Alevin
+# Alevin
 
-##Téléchargement des données du transcriptome
+## Téléchargement des données du transcriptome
 
 Les données du transcriptome sont retrouvées dans la documentation Salmon.  (https://ics.hutton.ac.uk/atRTD/RTD2/AtRTD2_19April2016.fa).
 Les données sont téléchargées grâce au code dans import_transcriptome.sh dans les scripts 
@@ -51,26 +51,32 @@ On prend la neuvième colonne des lignes qui correspondent à des exons (premiè
 On sélectionne les identifiants seulement avec les substr, sans les guillemets etc
 On met ce qu'on obtient dans le fichier txp2gene qui se trouve dans le dossier data_processed
 
-##Running Alevin
+## Running Alevin
 
 On peut maintenant lancer Alevin grâce au script alevin.sh. 
 On le run une fois pour le WT et une fois pour le mutant. 
 Pour le lancer il faut utiliser les données de transcriptome, le salmon index et la tgmap (appelée txp2gene)
 
-#Tools
-##Salmon and Alevin
+# Tools
+
+## Salmon and Alevin
 To count the number of cells that were analyzed and attribute a gene name to every sequence that was sequenced
 https://salmon.readthedocs.io/en/latest/salmon.html
 
-##AlevinQC
+## AlevinQC
 To open the output from the Alevin analysis. Need to install packages "httpuv"then install AlvinQC. For documentation : https://csoneson.github.io/alevinQC/
 Need to install the developer version of AlevinQC : https://www.bioconductor.org/packages/devel/bioc/html/alevinQC.html
 
 # Deuxième semaine : analyse de nos données et attribution des types cellulaires 
 
+Pour l'analyse avec, il faut importer les packages "Seurat" and "tximport". 
+Documentation disponible sur "https://satijalab.org/seurat/articles/pbmc3k_tutorial.html"
+
 D'abord on importe les données de tous les échantillons dans le shell import_donnestotales à partir des données publiées dans  https://flower.ens-lyon.fr/tp_ngs/scarabi/Alevin/quant. 
 Username : tp_ngs
 Password : Arabido2021!
+
+Résolution de l'analyse : 0.5 
 
 Les marqueurs cellulaires sont importés par le code du shell data_markers.sh.
 Dans un premier temps on a importé le fichier csv des associations de marqueurs de gènes pour chaque type cellulaire = méthode marqueurs génétiques. 
