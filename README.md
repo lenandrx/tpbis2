@@ -110,9 +110,9 @@ UMAP présentant les différents types cellulaires par clusters :
 
 ![umap-type-cell](Rplot-type-cellulaire.png)
 
-Corrplot par expression moyennée des differents marqueurs génétiques par clusters : 
+Heatmap par expression moyennée des differents marqueurs génétiques par clusters : 
 
-![corrplot](corrplot-type-cellulaire.png)
+![heatmap](heatmap.png)
 
 Deuxième technique par utilisation des marqueurs de dissection par type cellulaire : 
 
