@@ -118,6 +118,10 @@ Deuxième technique par utilisation des marqueurs de dissection par type cellula
 
 ![umap2](UMAP-WT-2.png)
 
+Comparaison de l'UMAP entre le WT et le mutant par projection des cellules du mutants sur l'UMAP du WT : chez le mutant rhd6, il manque les hair cells. 
+
+![umap-wt-mutant](UMAP-WT-mutant.png)
+
 Pour le reste de l'analyse, se réferrer au Rscript_week2.Rmd enitèrement annoté en markdown, étape par étape. 
 
 PS : problème lié au git -> création d'un nouveau git avec les fichiers à évaluer (Readme, script; et Rproj) qui sont commit et push dans le nouveau git. 
