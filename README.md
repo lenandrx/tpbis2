@@ -102,7 +102,21 @@ Quelques résultats principaux sont représentés ci-dessus par leur figure :
 
 ### UMAP 
 
+Première technique par marqueurs génétiques d'une librairie
+
 ![umap](UMAP-WT.png)
+
+UMAP présentant les différents types cellulaires par clusters : 
+
+![umap-type-cell](Rplot-type-cellulaire.png)
+
+Corrplot par expression moyennée des differents marqueurs génétiques par clusters : 
+
+![corrplot](corrplot-type-cellulaire.png)
+
+Deuxième technique par utilisation des marqueurs de dissection par type cellulaire : 
+
+![umap2](UMAP-WT-2.png)
 
 Pour le reste de l'analyse, se réferrer au Rscript_week2.Rmd enitèrement annoté en markdown, étape par étape. 
 
