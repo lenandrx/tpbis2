@@ -29,9 +29,9 @@ Cette action est codée dans le shell runfastqc.sh dans le dossier script.
 Les résultats de ce contrôle qualité sont dans le dossier results -> fastqc_analysis. 
 Ils sont par contre difficile a lire, on peut donc utiliser multiqc pour compiler les résultats et avoir un contrôle global de nos données. Le shell s'appelle multiqc.sh dans le dossier script. Les résultats sont dans results -> analyse_controle_qualite -> multiqc_data. L'ouverture dans le Web Browser permet de contrôler la qualité des données. 
 
-Les données étant satisfaisantes, on peut continuer avec l'analyse par Alevin. 
+![analysis](fastqc-status-check-heatmap.png)
 
-!(fastqc-status-check-heatmap.png)
+Les données étant satisfaisantes, on peut continuer avec l'analyse par Alevin. 
 
 ## Alevin
 
