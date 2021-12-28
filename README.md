@@ -4,6 +4,8 @@ Building an atlas of Arabidopsis cell types from Single-Cell RNA-seq
 
 TP encadré par Marie Sémon, Carine Rey, Alice Hugues, Romain Bulteau. 
 
+Groupe Scarabi : Allegra Seeler, Sasha Darmon, Simon Lacombe, Léna Andrieux 
+
 # Origin of the data
 
 On travaille sur des données de scRNAseq d'A. thaliana, obtenues sur des protoplastes de racines. Les protoplastes sont des cellules dont la paroi cellulaire a été digéré (retirée). 
@@ -14,12 +16,13 @@ Les données sont stockées dans GEO database (NCBI) sous le code GSE123013.
 
 Chaque membre du groupe travaille sur un WT et un mutant. J'ai travaillé sur le WT 3 et le mutant 5. 
 
-# Different steps of the analysis
-## Importing data
+# Première semaine : 
+
+### Import des données
 
 L'import des données est codé dans le shell download.sh (rangé dans les scripts). On n'importe que les reads 1 et 2; le troisième ne porte pas d'information d'expression. 
 
-## Quality control
+### Contrôle qualité
 
 On utilise fastqc afin d'effectuer un contrôle qualité de nos données. 
 Cette action est codée dans le shell runfastqc.sh dans le dossier script. 
@@ -28,9 +31,9 @@ Ils sont par contre difficile a lire, on peut donc utiliser multiqc pour compile
 
 Les données étant satisfaisantes, on peut continuer avec l'analyse par Alevin. 
 
-# Alevin
+## Alevin
 
-## Téléchargement des données du transcriptome
+### Téléchargement des données du transcriptome
 
 Les données du transcriptome sont retrouvées dans la documentation Salmon.  (https://ics.hutton.ac.uk/atRTD/RTD2/AtRTD2_19April2016.fa).
 Les données sont téléchargées grâce au code dans import_transcriptome.sh dans les scripts 
@@ -39,33 +42,33 @@ Dans le dossier data:
 • le document arabidopsis_transcriptome.fa contient la séquence 
 • le document arabidopsis_transcriptome.gtf contient toute l'information générale 
 
-## Création du salmon index nécessaire pour run alevin ensuite
+### Création du salmon index nécessaire pour run alevin ensuite
 
 Le code permettant la création du salmon index est dans le script import_transcriptome.sh
 Il est rangé dans un sous-dosser index_salmon dans le dossier data_processed
 
-## Création de la tg map : un ficher de correspondance avec les transcrits 
+### Création de la tg map : un ficher de correspondance avec les transcrits 
 
 Dans le shell import_transcriptome.sh, la commande bioawk permet la créatino de la tgmap. 
 On prend la neuvième colonne des lignes qui correspondent à des exons (première ligne)
 On sélectionne les identifiants seulement avec les substr, sans les guillemets etc
 On met ce qu'on obtient dans le fichier txp2gene qui se trouve dans le dossier data_processed
 
-## Running Alevin
+### Running Alevin
 
 On peut maintenant lancer Alevin grâce au script alevin.sh. 
 On le run une fois pour le WT et une fois pour le mutant. 
 Pour le lancer il faut utiliser les données de transcriptome, le salmon index et la tgmap (appelée txp2gene)
 
-# Tools
+## Tools
 
-## Salmon and Alevin
-To count the number of cells that were analyzed and attribute a gene name to every sequence that was sequenced
+### Salmon and Alevin
+Compter le nombre de cellules analysées et attribuer le nom du gène à chaque segment séquencé : 
 https://salmon.readthedocs.io/en/latest/salmon.html
 
-## AlevinQC
-To open the output from the Alevin analysis. Need to install packages "httpuv"then install AlvinQC. For documentation : https://csoneson.github.io/alevinQC/
-Need to install the developer version of AlevinQC : https://www.bioconductor.org/packages/devel/bioc/html/alevinQC.html
+### AlevinQC
+Ouvrir et visualiser les données obtenues par Alevin. Il faut installer le package "httpuv" puis AlvinQC. Documentation disponible : https://csoneson.github.io/alevinQC/
+Installer la version bioconductor : https://www.bioconductor.org/packages/devel/bioc/html/alevinQC.html
 
 # Deuxième semaine : analyse de nos données et attribution des types cellulaires 
 
