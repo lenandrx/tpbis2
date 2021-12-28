@@ -26,7 +26,10 @@ L'import des données est codé dans le shell download.sh (rangé dans les scrip
 
 On utilise fastqc afin d'effectuer un contrôle qualité de nos données. 
 Cette action est codée dans le shell runfastqc.sh dans le dossier script. 
-Les résultats de ce contrôle qualité sont dans le dossier results -> fastqc_analysis. 
+Les résultats de ce contrôle qualité sont dans le dossier results -> fastqc_analysis. On peut par exemple observer le socre qualité du séquençage illumina : 
+
+![sequence-quality](per-base-sequence-quality.png)
+
 Ils sont par contre difficile a lire, on peut donc utiliser multiqc pour compiler les résultats et avoir un contrôle global de nos données. Le shell s'appelle multiqc.sh dans le dossier script. Les résultats sont dans results -> analyse_controle_qualite -> multiqc_data. L'ouverture dans le Web Browser permet de contrôler la qualité des données. 
 
 ![analysis](fastqc-status-check-heatmap.png)
