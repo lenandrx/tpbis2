@@ -31,6 +31,8 @@ Ils sont par contre difficile a lire, on peut donc utiliser multiqc pour compile
 
 Les données étant satisfaisantes, on peut continuer avec l'analyse par Alevin. 
 
+![fastqc-status-check-heatmap.png]
+
 ## Alevin
 
 ### Téléchargement des données du transcriptome
