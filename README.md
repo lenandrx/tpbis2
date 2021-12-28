@@ -65,6 +65,10 @@ On peut maintenant lancer Alevin grâce au script alevin.sh.
 On le run une fois pour le WT et une fois pour le mutant. 
 Pour le lancer il faut utiliser les données de transcriptome, le salmon index et la tgmap (appelée txp2gene)
 
+Résultats du knee plot pour déterminer le palier des cellules selectionnées pour l'analyse : 
+
+![knee-plot](knee-plot.png) 
+
 ## Tools
 
 ### Salmon and Alevin
