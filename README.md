@@ -94,6 +94,16 @@ Les marqueurs cellulaires sont importés par le code du shell data_markers.sh.
 Dans un premier temps on a importé le fichier csv des associations de marqueurs de gènes pour chaque type cellulaire = méthode marqueurs génétiques. 
 Dans un second temps, pour la deuxième analyse, on a importé les données brutes obtenues par dissection de chaque type cellulaire = méthode types cellulaires connus. 
 
+Pour information, l'analyse est réalisée ici avec 10 000 gènes "high variable features". Dans le groupe, l'analyse a aussi été réalisée avec 2000, 5000 et 8000 gènes. 
+
+![high-variable-features](high-variable-features.png)
+
+Quelques résultats principaux sont représentés ci-dessus par leur figure : 
+
+### UMAP 
+
+![umap](UMAP-WT.png)
+
 Pour le reste de l'analyse, se réferrer au Rscript_week2.Rmd enitèrement annoté en markdown, étape par étape. 
 
 PS : problème lié au git -> création d'un nouveau git avec les fichiers à évaluer (Readme, script; et Rproj) qui sont commit et push dans le nouveau git. 
